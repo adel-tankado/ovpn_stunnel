@@ -1,0 +1,8 @@
+- name: Generate certs for VPN on Linux
+  hosts: all
+  become: true
+  vars:
+    - openvpn: true
+    - stunnel: true
+  roles:
+    - certs

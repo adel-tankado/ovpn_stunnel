@@ -1,0 +1,66 @@
+- name: Enable IPv4 forwarding
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    state: present
+    reload: yes
+    sysctl_set: yes
+
+- name: Upload iptables autostart file to /etc/network/if-pre-up.d/
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../roles/iptables/files/iptables-openvpn"
+    dest: "/etc/network/if-pre-up.d/iptables"
+    owner: root
+    group: root
+    mode: '0600'
+  become: true
+  run_once: false
+  when: openvpn == true and unboundDNS != true
+
+- name: Upload iptables autostart file to /etc/network/if-pre-up.d/
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../roles/iptables/files/iptables-openvpn-unboundDNS"
+    dest: "/etc/network/if-pre-up.d/iptables"
+    owner: root
+    group: root
+    mode: '0600'
+  become: true
+  run_once: false
+  when: openvpn == true and unboundDNS == true
+
+- name: Ensure /etc/openvpn directory exists on remote server
+  ansible.builtin.file:
+    path: /etc/openvpn
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+  when: openvpn | bool
+
+- name: Upload openvpn-iptables-rules file to OpenVPN directory
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../roles/iptables/files/openvpn-iptables-rules"
+    dest: "/etc/openvpn/openvpn-iptables-rules"
+    owner: root
+    group: root
+    mode: '0600'
+  become: true
+  run_once: false
+  when: openvpn == true and unboundDNS != true
+
+- name: Upload openvpn-unboundDNS-iptables-rules file to OpenVPN directory
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../roles/iptables/files/openvpn-unboundDNS-iptables-rules.j2"
+    dest: "/etc/openvpn/openvpn-unboundDNS-iptables-rules"
+    owner: root
+    group: root
+    mode: '0600'
+  become: true
+  run_once: false
+  when: openvpn == true and unboundDNS == true
+
+
+- name: Restore iptables rules
+  ansible.builtin.command: iptables-restore /etc/openvpn/openvpn-iptables-rules
+  changed_when: false

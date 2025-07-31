@@ -1,0 +1,58 @@
+---
+- name: Ensure /etc/pihole directory exists on a remote server
+  ansible.builtin.file:
+    path: /etc/pihole/
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+  when: openvpn | bool
+
+
+- name: Upload setupVars.conf /etc/pihole/ directory
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../roles/pi-hole/templates/setupVars.conf.j2"
+    dest: "/etc/pihole/setupVars.conf"
+    owner: root
+    group: root
+    mode: '0600'
+  become: true
+  run_once: false
+
+- name: Download Pi-hole install script
+  ansible.builtin.get_url:
+    url: https://install.pi-hole.net
+    dest: /tmp/install_pi-hole.sh
+    mode: '0755'
+  become: true
+
+- name: Run Pi-hole installer in unattended mode
+  ansible.builtin.command: >
+    bash /tmp/install_pi-hole.sh --unattended
+  args:
+    creates: /etc/pihole/pihole-FTL.conf  
+  become: true
+
+- name: Show ansible_host from inventory
+  ansible.builtin.debug:
+    msg: "Pi-Hole Web address: {{ pihole_private_ip }}:8080/admin"
+
+- name: Restart Pi-hole FTL service
+  ansible.builtin.service:
+    name: pihole-FTL
+    state: restarted
+    enabled: true
+  become: true
+
+- name: Pi-Hole interfaces notification 
+  ansible.builtin.debug:
+    msg: |
+      Important! After installation, go to the Pi-hole web interface →
+      Settings → DNS → Advanced DNS settings →
+      and enable "Listen on all interfaces" to allow external client access.
+
+- name: DNS nameserver
+  ansible.builtin.debug:
+    msg: |
+      Add new DNS server into /etc/resolv.conf or in NetworkManager settings: nameserver {{ pihole_private_ip }} 

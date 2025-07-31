@@ -1,0 +1,29 @@
+client
+dev tun
+proto tcp
+remote {{ openvpn_ip }} {{ openvpn_port }}
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+remote-cert-tls server
+cipher AES-256-CBC
+verb 3
+key-direction 1
+dhcp-option DNS 10.8.0.1
+<ca>
+{{ ca_content }}
+</ca>
+<cert>
+{{ cert_content }}
+</cert>
+<key>
+{{ key_content }}
+</key>
+<tls-auth>
+{{ ta_content }}
+</tls-auth>
+script-security 2
+up /etc/openvpn/update-resolv-conf
+down /etc/openvpn/update-resolv-conf
+route {{ ansible_host }} 255.255.255.255 net_gateway

@@ -1,0 +1,16 @@
+- name: Install necessary tools for OpenVPN + Stunnel + Unbound DNS + Pi-Hole on Linux
+  hosts: all
+  become: true
+  vars_prompt:
+    - name: "localhost_become_pass"
+      prompt: "Enter sudo password for localhost"
+      private: yes
+  vars:
+    ansible_become_password: "{{ localhost_become_pass }}" 
+  roles:
+     - iptables
+     - certs
+     - openvpn
+     - stunnel4
+     - unboundDNS
+     - pi-hole

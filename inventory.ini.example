@@ -1,0 +1,21 @@
+[ubuntu]
+#ubuntu_20.04 ansible_host=IP_ADDRESS
+
+[ubuntu:vars]
+ansible_user=root
+openvpn_port=1194
+openvpn_protocol=tcp
+openvpn_private_ip=10.8.0.0
+pihole_private_ip=10.8.0.1
+unboundDNS_port=5353
+#Set 'openvpn_ip' to 127.0.0.1 if using OpenVPN with Stunnel4
+#Otherwise, set it to the actual IP address of the server
+openvpn_ip=127.0.0.1
+stunnel4_port=443
+connect_automatically_on_host=true
+stunnel_service_server=stunnel
+stunnel_service_client=stunnel
+#Enable or disable services (true or false)
+openvpn=true                                                                                          
+stunnel4=true                                                                                         
+unboundDNS=true 

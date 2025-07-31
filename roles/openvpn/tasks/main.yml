@@ -1,0 +1,135 @@
+---
+- name: Update APT
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: true
+
+- name: Install OpenVPN
+  ansible.builtin.apt:
+    name:
+      - openvpn
+    state: present
+  become: true
+
+- name: Create directory for VPN files on localhost
+  ansible.builtin.file:
+    path: "generated_VPNs/{{ inventory_hostname }}"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  run_once: false
+  become: false
+
+- name: Create directory for client files on OpenVPN server
+  ansible.builtin.file:
+    path: "/etc/openvpn/client/gate/"
+    state: directory
+    mode: '0755'
+  run_once: false
+  become: true
+
+- name: Upload OpenVPN files to remote OpenVPN directory
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki/{{ item }}"
+    dest: "/etc/openvpn/{{ item }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop:
+    - ca.crt
+    - dh.pem
+    - ta.key
+#    - server.crt
+#    - server.key
+  become: true
+  run_once: false
+
+- name: Upload server.crt to remote OpenVPN directory
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki/issued/{{ item }}"
+    dest: "/etc/openvpn/{{ item }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop:
+    - server.crt
+  become: true
+  run_once: false
+
+- name: Upload server.key to remote OpenVPN directory
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki/private/{{ item }}"
+    dest: "/etc/openvpn/{{ item }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop:
+    - server.key
+  become: true
+  run_once: false
+
+- name: Upload ca.crt and ta.key to remote OpenVPN cleint directory
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki/{{ item }}"
+    dest: "/etc/openvpn/client/gate/{{ item }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop:
+    - ca.crt
+    - ta.key
+  become: true
+  run_once: false
+
+- name: Upload gate.crt to remote OpenVPN directory
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki/issued/{{ item }}"
+    dest: "/etc/openvpn/client/gate{{ item }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop:
+    - gate.crt
+  become: true
+  run_once: false
+
+- name: Upload gate.key to remote OpenVPN directory
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki/private/{{ item }}"
+    dest: "/etc/openvpn/{{ item }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop:
+    - gate.key
+  become: true
+  run_once: false
+
+- name: Copy OpenVPN server config from template
+  ansible.builtin.template:
+    src: "server.conf.j2"
+    dest: "/etc/openvpn/server.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+
+- name: Generating OpenVPN config file on localhost
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../roles/openvpn/templates/client.conf.j2"
+    dest: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/{{ inventory_hostname }}.ovpn" 
+  vars:
+    ca_content: "{{ lookup('file', '{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki/ca.crt') }}"
+    cert_content: "{{ lookup('file', '{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki/issued/gate.crt') }}"
+    key_content: "{{ lookup('file', '{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki/private/gate.key') }}"
+    ta_content: "{{ lookup('file', '{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki/ta.key') }}"
+  delegate_to: localhost
+  become: false
+
+- name: Start/restart OpenVPN
+  ansible.builtin.service:
+    name: openvpn
+    state: restarted
+    enabled: yes  
+  become: yes

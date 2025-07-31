@@ -1,0 +1,3 @@
+generated_VPNs/*
+!generated_VPNs/.gitkeep
+inventory.ini

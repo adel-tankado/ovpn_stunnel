@@ -1,0 +1,6 @@
+- name: Install OpenVPN on Linux
+  hosts: all
+  become: true
+  roles:
+    - openvpn
+

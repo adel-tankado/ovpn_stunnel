@@ -1,0 +1,5 @@
+[openvpn]
+client = yes
+accept = {{ openvpn_port }}
+connect = {{ ansible_host }}:{{ stunnel4_port }}
+cert = /etc/stunnel/stunnel.pem

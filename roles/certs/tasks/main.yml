@@ -1,0 +1,125 @@
+---
+- name: Update APT
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: true
+
+- name: Install Easy-RSA
+  ansible.builtin.apt:
+    name:
+      - easy-rsa
+    state: present
+  become: true
+  when: openvpn | bool
+
+- name: Create directory for VPN files on localhost
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  run_once: false
+  become: false
+  when: openvpn | bool
+
+- name: Create directory for Stunnel files on localhost
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/stunnel4/"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  run_once: false
+  become: false
+  when: stunnel4 | bool
+
+- name: Initialize PKI
+  ansible.builtin.command: ./easyrsa init-pki
+  args:
+    chdir: "{{ playbook_dir }}/../roles/certs/files/easy-rsa"
+  environment:
+    EASYRSA_BATCH: "1"
+    EASYRSA_PKI: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki"
+  delegate_to: localhost
+  become: false
+  run_once: false
+  when: openvpn | bool
+
+- name: Generate ca.crt
+  ansible.builtin.command: |
+    ./easyrsa build-ca nopass
+  args:
+    chdir: "{{ playbook_dir }}/../roles/certs/files/easy-rsa"
+  environment:
+    EASYRSA_BATCH: "1"
+    EASYRSA_PKI: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki"
+  delegate_to: localhost
+  become: false
+  when: openvpn | bool
+
+- name: Generate dh.pem
+  ansible.builtin.command: ./easyrsa gen-dh
+  args:
+    chdir: "{{ playbook_dir }}/../roles/certs/files/easy-rsa"
+  environment:
+    EASYRSA_BATCH: "1"
+    EASYRSA_PKI: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki"
+  delegate_to: localhost
+  become: false
+  run_once: false
+  when: openvpn | bool
+
+- name: Generate ta.key
+  ansible.builtin.command: openvpn --genkey --secret ta.key
+  args:
+    chdir: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki"
+  delegate_to: localhost
+  become: false
+  run_once: false
+  when: openvpn | bool
+
+- name: Build server.crt and server.key
+  ansible.builtin.command: ./easyrsa build-server-full server nopass
+  args:
+    chdir: "{{ playbook_dir }}/../roles/certs/files/easy-rsa"
+  environment:
+    EASYRSA_BATCH: "1"
+    EASYRSA_PKI: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki"
+  delegate_to: localhost
+  become: false
+  run_once: false
+  when: openvpn | bool
+
+- name: Build gate.crt and gate.key
+  ansible.builtin.command: ./easyrsa build-client-full gate nopass
+  args:
+    chdir: "{{ playbook_dir }}/../roles/certs/files/easy-rsa"
+  environment:
+    EASYRSA_BATCH: "1"
+    EASYRSA_PKI: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/pki"
+  delegate_to: localhost
+  become: false
+  run_once: false
+  when: openvpn | bool
+
+- name: Generate RSA private key for stunnel
+  ansible.builtin.command: >
+    openssl genrsa -out key.pem 2048
+  args:
+    chdir: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/stunnel4"
+  delegate_to: localhost
+  become: false
+  run_once: false
+  when: stunnel4 | bool
+
+- name: Generate self-signed certificate for stunnel
+  ansible.builtin.command: >
+    openssl req -new -x509 -key key.pem -out cert.pem -days 3650
+    -subj "/CN={{ inventory_hostname }}"
+  args:
+    chdir: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/stunnel4"
+  delegate_to: localhost
+  become: false
+  run_once: false
+  when: stunnel4 | bool
+

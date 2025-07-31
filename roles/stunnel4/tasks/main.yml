@@ -1,0 +1,120 @@
+---
+- name: Update APT
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: true
+
+- name: Install Stunnel4
+  ansible.builtin.apt:
+    name:
+      - stunnel4
+    state: present
+  become: true
+
+- name: Create directory for server files on the server
+  ansible.builtin.file:
+    path: "/etc/stunnel/"
+    state: directory
+    mode: '0755'
+  run_once: false
+  become: true
+
+- name: Create directory for client files on localhost
+  ansible.builtin.file:
+    path: "/etc/stunnel/"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  run_once: false
+  become: true
+
+- name: Combine key.pem and cert.pem into stunnel.pem
+  ansible.builtin.shell: cat key.pem cert.pem > stunnel.pem
+  args:
+    chdir: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/stunnel4"
+  delegate_to: localhost
+  become: false
+  run_once: false
+
+- name: Upload key.pem and cert.pem to remote /etc/stunnel/ directory
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/stunnel4/{{ item }}"
+    dest: "/etc/stunnel/{{ item }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop:
+    - cert.pem
+    - key.pem
+  become: true
+  run_once: false
+
+- name: Generating server config of Stunnel4 for /etc/stunnel/
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../roles/stunnel4/templates/stunnel-server.conf.j2"
+    dest: "/etc/stunnel/stunnel.conf" 
+  become: false
+
+- name: Generatings client config of Stunnel4 for localhost
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../roles/stunnel4/templates/stunnel-client.conf.j2"
+    dest: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/stunnel4/stunnel.conf" 
+  delegate_to: localhost
+  become: false
+ 
+- name: Start/restart Stunnel4 on server
+  ansible.builtin.service:
+    name: {{ stunnel_service_server }}
+    state: restarted
+    enabled: yes  
+  become: yes
+
+#- name: Prompt for become password (only on localhost)
+#  vars_prompt:
+#    - name: "localhost_become_pass"
+#     prompt: "Enter sudo password for localhost"
+#      private: yes
+#  when: connect_automatically_on_host | bool
+#  run_once: true
+
+- name: Set become password for localhost
+  ansible.builtin.set_fact:
+    ansible_become_password: "{{ localhost_become_pass }}"
+  when: connect_automatically_on_host | bool
+  run_once: true
+
+- name: Stop Stunnel on client
+  ansible.builtin.service:
+    name: {{ stunnel_service_client }}
+    state: stopped
+  become: yes
+  delegate_to: localhost
+  when: connect_automatically_on_host | bool
+ 
+- name: Upload stunnel4 client`s config on /etc/stunnel/ directory
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../generated_VPNs/{{ inventory_hostname }}/stunnel4/{{ item }}"
+    dest: "/etc/stunnel/{{ item }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop:
+    - stunnel.conf
+    - stunnel.pem
+  delegate_to: localhost
+  become: true
+  run_once: false
+  when: connect_automatically_on_host | bool
+
+- name: Start Stunnel4 on client
+  ansible.builtin.service:
+    name: {{ stunnel_service_client }}
+    state: restarted
+    enabled: yes  
+  become: yes
+  delegate_to: localhost
+  when: connect_automatically_on_host | bool
+
+
+

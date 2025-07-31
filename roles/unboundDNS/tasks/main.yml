@@ -1,0 +1,52 @@
+---
+- name: Update APT
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: true
+
+- name: Install unbound and unbound-host packages
+  ansible.builtin.apt:
+    name:
+      - unbound
+      - unbound-host
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Download root hints file for Unbound
+  ansible.builtin.get_url:
+    url: https://www.internic.net/domain/named.cache
+    dest: /var/lib/unbound/root.hints
+    mode: '0644'
+    owner: root
+    group: root
+#    force: true
+  become: true
+
+- name: Ensure /etc/unbound/unbound.conf.d/ directory exists on remote server
+  ansible.builtin.file:
+    path: /etc/unbound/unbound.conf.d/
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+  when: openvpn | bool
+
+
+- name: Upload UnboundDNS config file
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../roles/unboundDNS/templates/pihole.conf.j2"
+    dest: "/etc/unbound/unbound.conf.d/pi-hole.conf"
+    owner: root
+    group: root
+    mode: '0600'
+  become: true
+  run_once: false
+
+- name: Rstart UnboundDNS service
+  ansible.builtin.systemd:
+    name: unbound
+    state: restarted
+

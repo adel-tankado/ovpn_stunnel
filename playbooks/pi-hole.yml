@@ -1,0 +1,5 @@
+- name: Install Pi-Hole  on Linux
+  hosts: all
+  become: true
+  roles:
+    - pi-hole
