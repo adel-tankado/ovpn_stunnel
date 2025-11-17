@@ -2,3 +2,4 @@ generated_VPNs/*
 !generated_VPNs/.gitkeep
 inventory.ini
 GIT.txt
+ansible_venv/
